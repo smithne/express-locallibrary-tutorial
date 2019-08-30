@@ -1,5 +1,10 @@
 const Book = require("../models/book");
 
+// catalog home page
+exports.index = (req, res) => {
+  res.send("NOT IMPLEMENTED: site index");
+};
+
 // display list of books
 exports.book_list = (req, res) => {
   res.send("NOT IMPLEMENTED: book list");
