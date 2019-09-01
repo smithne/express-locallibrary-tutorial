@@ -11,8 +11,8 @@ var BookSchema = new Schema({
 });
 
 // virtual for book url
-BookSchema.virtual("url").get(() => {
-  return "catalog/book/" + this._id;
+BookSchema.virtual("url").get(function() {
+  return "/catalog/book/" + this._id;
 });
 
 module.exports = mongoose.model("Book", BookSchema);
