@@ -2,6 +2,9 @@ const Genre = require("../models/genre");
 const Book = require("../models/book");
 const async = require("async");
 
+const { body, validationResult } = require("express-validator/check");
+const { sanitizeBody } = require("express-validator/filter");
+
 // display list of genres
 exports.genre_list = (req, res, next) => {
   Genre.find()
@@ -51,13 +54,56 @@ exports.genre_detail = (req, res, next) => {
 
 // display create book instance page
 exports.genre_create_get = (req, res) => {
-  res.send("NOT IMPLEMENTED: create genre GET");
+  res.render("genre_form", { title: "Create Genre" });
 };
 
 // handle genre create POST
-exports.genre_create_post = (req, res) => {
-  res.send("NOT IMPLEMENTED: create genre POST");
-};
+exports.genre_create_post = [
+  // name field cannot be empty
+
+  body("name")
+    .trim()
+    .isLength({ min: 1 })
+    .withMessage("Genre name is required"),
+  sanitizeBody("name").escape(),
+
+  (req, res, next) => {
+    const errors = validationResult(req);
+    console.log(errors);
+
+    var genre = new Genre({ name: req.body.name });
+
+    if (!errors.isEmpty()) {
+      // re-render form with errors shown
+      res.render("genre_form", {
+        title: "Create Genre",
+        genre: genre,
+        errors: errors.array()
+      });
+      return;
+    } else {
+      // valid form
+      Genre.findOne({ name: req.body.name }).exec((err, found_genre) => {
+        if (err) {
+          return next(err);
+        }
+
+        if (found_genre) {
+          // genre already exists, redirect to existing genre
+          res.redirect(found_genre.url);
+        } else {
+          genre.save(err => {
+            if (err) {
+              return next(err);
+            }
+            // success: genre saved, redirect to new genre
+            res.redirect(genre.url);
+          });
+        }
+      });
+    }
+  }
+];
 
 // dsplay delete book instance page GET
 exports.genre_delete_get = (req, res) => {
