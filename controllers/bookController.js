@@ -4,6 +4,8 @@ const Genre = require("../models/genre");
 const BookInstance = require("../models/bookinstance");
 
 const async = require("async");
+const { body, validationResult } = require("express-validator/check");
+const { sanitizeBody } = require("express-validator/filter");
 
 // catalog home page
 exports.index = (req, res) => {
@@ -85,14 +87,120 @@ exports.book_detail = (req, res, next) => {
 };
 
 // display create book instance page
-exports.book_create_get = (req, res) => {
-  res.send("NOT IMPLEMENTED: create book GET");
+exports.book_create_get = (req, res, next) => {
+  async.parallel(
+    {
+      authors: callback => {
+        Author.find(callback);
+      },
+      genres: callback => {
+        Genre.find(callback);
+      }
+    },
+    (err, results) => {
+      if (err) {
+        return next(err);
+      }
+      res.render("book_form", {
+        title: "Create Book",
+        authors: results.authors,
+        genres: results.genres
+      });
+    }
+  );
 };
 
 // handle book create POST
-exports.book_create_post = (req, res) => {
-  res.send("NOT IMPLEMENTED: create book POST");
-};
+exports.book_create_post = [
+  // convert genre to array
+  (req, res, next) => {
+    if (!(req.body.genre instanceof Array)) {
+      if (typeof req.body.genre === "undefined") {
+        req.body.genre = [];
+      } else {
+        req.body.genre = new Array(req.body.genre);
+      }
+    }
+    next();
+  },
+
+  // validate fields
+  body("title", "Title must not be empty.")
+    .trim()
+    .isLength({ min: 1 }),
+  body("author", "Author must not be empty.")
+    .trim()
+    .isLength({ min: 1 }),
+  body("summary", "Summary must not be empty.")
+    .trim()
+    .isLength({ min: 1 }),
+  body("isbn", "ISBN must not be empty.")
+    .trim()
+    .isLength({ min: 1 }),
+
+  // sanitize fields
+  sanitizeBody("*").escape(),
+
+  // process request after validation and sanitization
+  (req, res, next) => {
+    // get any validation errors
+    const errors = validationResult(req);
+
+    // create Book object
+    const book = new Book({
+      title: req.body.title,
+      author: req.body.author,
+      summary: req.body.summary,
+      isbn: req.body.summary,
+      genre: req.body.genre
+    });
+
+    if (!errors.isEmpty()) {
+      // re-render form with errors
+
+      // get authors & genres to populate form
+      async.parallel(
+        {
+          authors: callback => {
+            Author.find(callback);
+          },
+          genres: callback => {
+            Genre.find(callback);
+          }
+        },
+        (err, results) => {
+          if (err) {
+            return next(err);
+          }
+
+          // mark genres selected previously as checked
+          for (let i = 0; i < results.genres.length; i++) {
+            if (book.genre.indexOf(results.genres[i]._id) > -1) {
+              results.genres[i].checked = "true";
+            }
+          }
+          res.render("book_form", {
+            title: "Create Book",
+            authors: results.authors,
+            genres: results.genres,
+            book: book,
+            errors: errors.array()
+          });
+        }
+      );
+      return;
+    } else {
+      // valid form data
+      book.save(err => {
+        if (err) {
+          return next(err);
+        }
+        // save successful
+        res.redirect(book.url);
+      });
+    }
+  }
+];
 
 // dsplay delete book instance page GET
 exports.book_delete_get = (req, res) => {
