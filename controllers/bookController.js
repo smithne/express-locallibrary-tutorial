@@ -46,7 +46,6 @@ exports.book_list = (req, res, next) => {
         return next(err);
       }
       // success
-      console.log(list_books);
       res.render("book_list", { title: "Book List", book_list: list_books });
     });
 };
@@ -112,18 +111,6 @@ exports.book_create_get = (req, res, next) => {
 
 // handle book create POST
 exports.book_create_post = [
-  // convert genre to array
-  (req, res, next) => {
-    if (!(req.body.genre instanceof Array)) {
-      if (typeof req.body.genre === "undefined") {
-        req.body.genre = [];
-      } else {
-        req.body.genre = new Array(req.body.genre);
-      }
-    }
-    next();
-  },
-
   // validate fields
   body("title", "Title must not be empty.")
     .trim()
@@ -139,19 +126,29 @@ exports.book_create_post = [
     .isLength({ min: 1 }),
 
   // sanitize fields
-  sanitizeBody("*").escape(),
+  sanitizeBody(["title", "author", "summary", "isbn"]).escape(),
+  sanitizeBody("genre.*").escape(),
 
   // process request after validation and sanitization
   (req, res, next) => {
     // get any validation errors
     const errors = validationResult(req);
 
+    // convert genre to array
+    if (!(req.body.genre instanceof Array)) {
+      if (typeof req.body.genre === "undefined") {
+        req.body.genre = [];
+      } else {
+        req.body.genre = new Array(req.body.genre);
+      }
+    }
+
     // create Book object
     const book = new Book({
       title: req.body.title,
       author: req.body.author,
       summary: req.body.summary,
-      isbn: req.body.summary,
+      isbn: req.body.isbn,
       genre: req.body.genre
     });
 
@@ -179,6 +176,7 @@ exports.book_create_post = [
               results.genres[i].checked = "true";
             }
           }
+
           res.render("book_form", {
             title: "Create Book",
             authors: results.authors,
