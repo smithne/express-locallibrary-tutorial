@@ -211,8 +211,46 @@ exports.book_delete_post = (req, res) => {
 };
 
 // dipslay update book instance page GET
-exports.book_update_get = (req, res) => {
-  res.send("NOT IMPLEMENTED: update book GET");
+exports.book_update_get = (req, res, next) => {
+  // get book, authors, genres
+  async.parallel(
+    {
+      book: callback => {
+        Book.findById(req.params.id).exec(callback);
+      },
+      authors: callback => {
+        Author.find(callback);
+      },
+      genres: callback => {
+        Genre.find(callback);
+      }
+    },
+    (err, results) => {
+      if (err) {
+        return next(err);
+      }
+      if (results.book == null) {
+        // no book found
+        err = new Error("Book not found");
+        err.status = 404;
+        return next(err);
+      }
+      // success
+      // mark Book's genres as checked
+      for (let i = 0; i < results.genres.length; i++) {
+        if (results.book.genre.includes(results.genres[i]._id)) {
+          results.genres[i].checked = true;
+        }
+      }
+
+      res.render("book_form", {
+        title: "Update Book",
+        authors: results.authors,
+        genres: results.genres,
+        book: results.book
+      });
+    }
+  );
 };
 
 // handle book update POST
